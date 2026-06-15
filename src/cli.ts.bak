@@ -1,0 +1,197 @@
+#!/usr/bin/env node
+
+import { EventEmitter } from './index.js';
+import { readFileSync } from 'fs';
+import { argv } from 'process';
+
+const emitter = new EventEmitter();
+
+// Register built-in commands
+emitter.on('help', () => {
+  console.log(`
+eventkit-x CLI - Zero-dependency event system
+
+Usage:
+  eventkit-x <command> [options]
+
+Commands:
+  help              Show this help message
+  demo              Run interactive demo
+  stats             Show event statistics
+  emit <event> <data>  Emit an event with data
+  on <event>        Listen for an event (interactive mode)
+  clear             Clear all listeners
+  version           Show version
+
+Options:
+  --source <name>   Specify event source
+  --priority <n>    Set listener priority
+  --once            Register one-time listener
+  --json            Output JSON format
+  --file <path>     Load data from JSON file
+  --count <n>       Emit event multiple times
+
+Examples:
+  eventkit-x emit test hello
+  eventkit-x emit test --json '{"name": "Alice"}'
+  eventkit-x on test
+  eventkit-x demo
+`);
+});
+
+emitter.on('version', () => {
+  console.log('eventkit-x v1.0.0');
+});
+
+emitter.on('stats', () => {
+  const stats = emitter.getStats();
+  console.log('Event Statistics:');
+  console.log(`  Total Emitted: ${stats.totalEmitted}`);
+  console.log(`  Total Listeners: ${stats.totalListeners}`);
+  console.log('  Event Counts:');
+  for (const [event, count] of stats.eventCounts) {
+    console.log(`    ${event}: ${count}`);
+  }
+});
+
+emitter.on('clear', () => {
+  const count = emitter.removeAllListeners();
+  console.log(`Cleared ${count} listeners`);
+});
+
+emitter.on('emit', (data, options = {}) => {
+  const { event, count = 1, source } = data;
+  const payload = options.json ? JSON.parse(data.data) : data.data;
+  
+  for (let i = 0; i < count; i++) {
+    emitter.emit(event, payload, { source });
+  }
+  console.log(`Emitted ${event} ${count} time${count > 1 ? 's' : ''}`);
+});
+
+// Interactive demo
+emitter.on('demo', async () => {
+  console.log('🎯 Event System Demo\n');
+  
+  // Set up demo events
+  emitter.on('user:login', (user) => {
+    console.log(`✅ User logged in: ${user.name} (${user.id})`);
+  }, { priority: 5 });
+  
+  emitter.on('user:login', (user) => {
+    console.log(`📧 Sending welcome email to ${user.email}`);
+  }, { priority: 3 });
+  
+  emitter.on('*', (data, metadata) => {
+    console.log(`📡 Event: ${metadata.event} | Source: ${metadata.source || 'unknown'}`);
+  });
+  
+  emitter.onAsync('data:process', async (data) => {
+    console.log(`⚡ Processing data...`);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log(`✅ Data processed: ${JSON.stringify(data)}`);
+  });
+  
+  emitter.once('session:start', (session) => {
+    console.log(`🚀 Session ${session.id} started`);
+  });
+  
+  // Emit demo events
+  console.log('\n--- Emitting Demo Events ---');
+  
+  await emitter.emit('user:login', {
+    name: 'Alice',
+    id: 123,
+    email: 'alice@example.com'
+  }, { source: 'auth-service' });
+  
+  await emitter.emit('user:login', {
+    name: 'Bob',
+    id: 456,
+    email: 'bob@example.com'
+  }, { source: 'auth-service' });
+  
+  await emitter.emit('session:start', { id: 'sess-001' });
+  await emitter.emit('data:process', { type: 'user', id: 123 });
+  
+  console.log('\n--- Stats ---');
+  emitter.emit('stats');
+  
+  console.log('\n--- Interactive Mode ---');
+  console.log('Try these commands:');
+  console.log('  eventkit-x on test');
+  console.log('  eventkit-x emit test "hello world"');
+  console.log('  eventkit-x off <subscription-id>');
+});
+
+// Interactive listener mode
+emitter.on('on', async (data, options = {}) => {
+  const { event } = data;
+  const subscriptionId = emitter.on(event, (data, metadata) => {
+    console.log(`🎯 ${event}: ${JSON.stringify(data)} | ID: ${metadata.eventId}`);
+    console.log(`   Use 'eventkit-x off ${subscriptionId}' to stop listening`);
+  }, options);
+  
+  console.log(`🎧 Listening for ${event} events...`);
+  console.log(`   Subscription ID: ${subscriptionId}`);
+  console.log('   Press Ctrl+C to stop');
+  
+  // Keep process alive
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.on('data', (chunk) => {
+    if (chunk[0] === 3) { // Ctrl+C
+      emitter.off(subscriptionId);
+      console.log('👋 Stopped listening');
+      process.exit(0);
+    }
+  });
+});
+
+// Parse command line arguments
+const command = argv[2] || 'help';
+const args = argv.slice(3);
+
+// Parse options
+const options = {};
+let currentOption = null;
+for (const arg of args) {
+  if (arg.startsWith('--')) {
+    currentOption = arg.slice(2);
+    options[currentOption] = true;
+  } else if (currentOption && !options[currentOption]) {
+    options[currentOption] = arg;
+    currentOption = null;
+  } else {
+    // Positional arguments
+    if (!options._) options._ = [];
+    options._.push(arg);
+  }
+}
+
+// Handle command
+emitter.emit('help');
+
+if (command === 'demo') {
+  emitter.emit('demo');
+} else if (command === 'stats') {
+  emitter.emit('stats');
+} else if (command === 'clear') {
+  emitter.emit('clear');
+} else if (command === 'version') {
+  emitter.emit('version');
+} else if (command === 'emit' && options._?.length >= 2) {
+  const [event, ...dataParts] = options._;
+  emitter.emit('emit', {
+    event,
+    data: dataParts.join(' '),
+    ...options
+  });
+} else if (command === 'on' && options._?.length >= 1) {
+  const [event] = options._;
+  emitter.emit('on', { event, ...options });
+} else {
+  console.log('Unknown command. Use "eventkit-x help" for usage information.');
+}
+
+export { emitter };

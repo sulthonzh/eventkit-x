@@ -1,0 +1,33 @@
+{
+  "name": "eventkit-x",
+  "version": "1.0.0",
+  "description": "Zero-dependency event system with advanced features",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    "import": "./dist/index.js",
+    "types": "./dist/index.d.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test test/*.test.js",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "event",
+    "events",
+    "observer",
+    "pubsub",
+    "emitter",
+    "eventemitter",
+    "typescript",
+    "zero-dependencies"
+  ],
+  "author": "Sulthonzh",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
