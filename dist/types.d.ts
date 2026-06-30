@@ -13,6 +13,7 @@ export interface EventSubscription {
     id: string;
     event: string;
     handler: EventHandler | AsyncEventHandler;
+    syncHandler?: EventHandler;
     once: boolean;
     priority: number;
     filter?: (data: any, metadata: EventMetadata) => boolean;

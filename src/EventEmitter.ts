@@ -54,6 +54,10 @@ export class EventEmitter {
    * Emit an event to all listeners
    */
   async emit<T = any>(event: string, data: T, options: EmitOptions & EventOptions = {}): Promise<number> {
+    // Update stats (even if no listeners)
+    this.stats.totalEmitted++;
+    this.stats.eventCounts.set(event, (this.stats.eventCounts.get(event) || 0) + 1);
+
     const subscriptions = this.getSubscriptions(event);
     const wildcardSubscriptions = this.getSubscriptions('*');
     const allSubscriptions = [...subscriptions, ...wildcardSubscriptions];
@@ -97,10 +101,6 @@ export class EventEmitter {
       }
     }
 
-    // Update stats
-    this.stats.totalEmitted++;
-    this.stats.eventCounts.set(event, (this.stats.eventCounts.get(event) || 0) + 1);
-
     return emittedCount;
   }
 
@@ -108,6 +108,10 @@ export class EventEmitter {
    * Emit an event synchronously
    */
   emitSync<T = any>(event: string, data: T, options: EmitOptions & EventOptions = {}): number {
+    // Update stats (even if no listeners)
+    this.stats.totalEmitted++;
+    this.stats.eventCounts.set(event, (this.stats.eventCounts.get(event) || 0) + 1);
+
     const subscriptions = this.getSubscriptions(event);
     const wildcardSubscriptions = this.getSubscriptions('*');
     const allSubscriptions = [...subscriptions, ...wildcardSubscriptions];
@@ -142,17 +146,14 @@ export class EventEmitter {
       }
 
       try {
-        subscription.handler(data, metadata);
+        const handler = subscription.syncHandler || subscription.handler;
+        handler(data, metadata);
         emittedCount++;
         remainingLimit--;
       } catch (error) {
         console.error(`Error in event handler for "${event}":`, error);
       }
     }
-
-    // Update stats
-    this.stats.totalEmitted++;
-    this.stats.eventCounts.set(event, (this.stats.eventCounts.get(event) || 0) + 1);
 
     return emittedCount;
   }
@@ -258,18 +259,21 @@ export class EventEmitter {
       console.warn(`Max listeners (${this.maxListeners}) exceeded for event "${event}". Some listeners may be ignored.`);
     }
 
-    eventSubscriptions.push(subscription);
-    this.updateStats();
-
-    // Clean up once subscriptions after emit
     if (once) {
       const originalHandler = handler;
       const wrappedHandler: EventHandler<T> = async (data, metadata) => {
-        await originalHandler(data, metadata);
+        await (originalHandler as AsyncEventHandler<T>)(data, metadata);
         this.off(subscriptionId);
       };
       subscription.handler = wrappedHandler as any;
+      subscription.syncHandler = (data, metadata) => {
+        (originalHandler as EventHandler<T>)(data, metadata);
+        this.off(subscriptionId);
+      };
     }
+
+    eventSubscriptions.push(subscription);
+    this.updateStats();
 
     return subscriptionId;
   }

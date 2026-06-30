@@ -16,7 +16,7 @@ export type {
 } from './types.js';
 
 // Main class exports
-export { EventEmitter, EventGroup, EventMiddleware };
+export { EventEmitter, EventGroup, EventMiddleware, createEventBus, Middleware };
 
 // Convenience aliases
 export type { EventEmitter as Events };

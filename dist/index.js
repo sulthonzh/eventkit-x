@@ -1,9 +1,9 @@
 // Import classes first
 import { EventEmitter } from './EventEmitter.js';
 import { EventGroup } from './EventGroup.js';
-import { EventMiddleware } from './EventMiddleware.js';
+import { EventMiddleware, createEventBus, Middleware } from './EventMiddleware.js';
 // Main class exports
-export { EventEmitter, EventGroup, EventMiddleware };
+export { EventEmitter, EventGroup, EventMiddleware, createEventBus, Middleware };
 // Factory function
 export function createEventEmitter() {
     return new EventEmitter();

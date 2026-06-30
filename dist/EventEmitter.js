@@ -37,6 +37,9 @@ export class EventEmitter {
      * Emit an event to all listeners
      */
     async emit(event, data, options = {}) {
+        // Update stats (even if no listeners)
+        this.stats.totalEmitted++;
+        this.stats.eventCounts.set(event, (this.stats.eventCounts.get(event) || 0) + 1);
         const subscriptions = this.getSubscriptions(event);
         const wildcardSubscriptions = this.getSubscriptions('*');
         const allSubscriptions = [...subscriptions, ...wildcardSubscriptions];
@@ -73,15 +76,15 @@ export class EventEmitter {
                 console.error(`Error in event handler for "${event}":`, error);
             }
         }
-        // Update stats
-        this.stats.totalEmitted++;
-        this.stats.eventCounts.set(event, (this.stats.eventCounts.get(event) || 0) + 1);
         return emittedCount;
     }
     /**
      * Emit an event synchronously
      */
     emitSync(event, data, options = {}) {
+        // Update stats (even if no listeners)
+        this.stats.totalEmitted++;
+        this.stats.eventCounts.set(event, (this.stats.eventCounts.get(event) || 0) + 1);
         const subscriptions = this.getSubscriptions(event);
         const wildcardSubscriptions = this.getSubscriptions('*');
         const allSubscriptions = [...subscriptions, ...wildcardSubscriptions];
@@ -109,7 +112,8 @@ export class EventEmitter {
                 continue;
             }
             try {
-                subscription.handler(data, metadata);
+                const handler = subscription.syncHandler || subscription.handler;
+                handler(data, metadata);
                 emittedCount++;
                 remainingLimit--;
             }
@@ -117,9 +121,6 @@ export class EventEmitter {
                 console.error(`Error in event handler for "${event}":`, error);
             }
         }
-        // Update stats
-        this.stats.totalEmitted++;
-        this.stats.eventCounts.set(event, (this.stats.eventCounts.get(event) || 0) + 1);
         return emittedCount;
     }
     /**
@@ -207,9 +208,6 @@ export class EventEmitter {
         if (eventSubscriptions.length >= this.maxListeners) {
             console.warn(`Max listeners (${this.maxListeners}) exceeded for event "${event}". Some listeners may be ignored.`);
         }
-        eventSubscriptions.push(subscription);
-        this.updateStats();
-        // Clean up once subscriptions after emit
         if (once) {
             const originalHandler = handler;
             const wrappedHandler = async (data, metadata) => {
@@ -217,7 +215,13 @@ export class EventEmitter {
                 this.off(subscriptionId);
             };
             subscription.handler = wrappedHandler;
+            subscription.syncHandler = (data, metadata) => {
+                originalHandler(data, metadata);
+                this.off(subscriptionId);
+            };
         }
+        eventSubscriptions.push(subscription);
+        this.updateStats();
         return subscriptionId;
     }
     getSubscriptions(event) {

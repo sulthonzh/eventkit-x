@@ -10,7 +10,6 @@ export interface MiddlewareContext<T = any> {
 export type MiddlewareHandler<T = any> = (context: MiddlewareContext<T>) => Promise<void> | void;
 export declare class EventMiddleware<T = any> extends EventEmitter {
     private middlewares;
-    private stopped;
     /**
      * Add middleware to the chain
      */

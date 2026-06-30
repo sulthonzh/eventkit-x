@@ -27,7 +27,8 @@ export class EventGroup {
    */
   addEvents(events: { [key: string]: any }): void {
     for (const [event, handler] of Object.entries(events)) {
-      this.emitter.on(event, handler);
+      const subId = this.emitter.on(event, handler);
+      this.subscriptionIds.push(subId);
     }
   }
 

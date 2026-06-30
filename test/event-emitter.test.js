@@ -11,7 +11,7 @@ import { strict as assert } from 'assert';
     assert.equal(data, 'hello');
   });
 
-  emitter.emit('test', 'hello');
+  emitter.emitSync('test', 'hello');
   assert.equal(callCount, 1);
 }
 
@@ -25,8 +25,8 @@ import { strict as assert } from 'assert';
     assert.equal(data, 'hello');
   });
 
-  emitter.emit('test', 'hello');
-  emitter.emit('test', 'hello');
+  emitter.emitSync('test', 'hello');
+  emitter.emitSync('test', 'hello');
   assert.equal(callCount, 1);
 }
 
@@ -38,7 +38,7 @@ import { strict as assert } from 'assert';
   emitter.on('test', () => callCount++);
   emitter.on('test', () => callCount++);
   
-  emitter.emit('test', 'data');
+  emitter.emitSync('test', 'data');
   assert.equal(callCount, 2);
 }
 
@@ -60,22 +60,18 @@ import { strict as assert } from 'assert';
 // Test wildcard events
 {
   const emitter = new EventEmitter();
-  let callCount = 0;
+  let wildcardCount = 0;
+  let specificCount = 0;
   
-  emitter.on('*', (data) => {
-    callCount++;
-    assert.equal(data, 'wildcard');
-  });
-  
-  emitter.on('specific', (data) => {
-    callCount++;
-    assert.equal(data, 'specific');
-  });
+  emitter.on('*', () => wildcardCount++);
+  emitter.on('specific', () => specificCount++);
 
-  emitter.emit('specific', 'specific');
-  emitter.emit('other', 'wildcard');
-  emitter.emit('another', 'wildcard');
-  assert.equal(callCount, 3);
+  emitter.emitSync('specific', 'specific');
+  emitter.emitSync('other', 'wildcard');
+  emitter.emitSync('another', 'wildcard');
+  // wildcard fires for all 3, specific fires for 1
+  assert.equal(wildcardCount, 3);
+  assert.equal(specificCount, 1);
 }
 
 // Test priority
@@ -87,7 +83,7 @@ import { strict as assert } from 'assert';
   emitter.on('test', () => order.push('high'), { priority: 10 });
   emitter.on('test', () => order.push('medium'), { priority: 5 });
   
-  emitter.emit('test', 'data');
+  emitter.emitSync('test', 'data');
   assert.deepEqual(order, ['high', 'medium', 'low']);
 }
 
@@ -100,8 +96,8 @@ import { strict as assert } from 'assert';
     filter: (data) => data > 5
   });
 
-  emitter.emit('test', 3);  // Should not trigger
-  emitter.emit('test', 7);  // Should trigger
+  emitter.emitSync('test', 3);  // Should not trigger
+  emitter.emitSync('test', 7);  // Should trigger
   assert.equal(callCount, 1);
 }
 
@@ -111,11 +107,11 @@ import { strict as assert } from 'assert';
   let callCount = 0;
   
   const subId = emitter.on('test', () => callCount++);
-  emitter.emit('test', 'data');
+  emitter.emitSync('test', 'data');
   assert.equal(callCount, 1);
   
   emitter.off(subId);
-  emitter.emit('test', 'data');
+  emitter.emitSync('test', 'data');
   assert.equal(callCount, 1);
 }
 
@@ -129,8 +125,8 @@ import { strict as assert } from 'assert';
   emitter.on('other', () => callCount++);
   
   emitter.removeAllListeners('test');
-  emitter.emit('test', 'data');
-  emitter.emit('other', 'data');
+  emitter.emitSync('test', 'data');
+  emitter.emitSync('other', 'data');
   assert.equal(callCount, 1);
 }
 
@@ -138,9 +134,9 @@ import { strict as assert } from 'assert';
 {
   const emitter = new EventEmitter();
   
-  emitter.emit('test1', 'data');
-  emitter.emit('test1', 'data');
-  emitter.emit('test2', 'data');
+  emitter.emitSync('test1', 'data');
+  emitter.emitSync('test1', 'data');
+  emitter.emitSync('test2', 'data');
   
   const stats = emitter.getStats();
   assert.equal(stats.totalEmitted, 3);

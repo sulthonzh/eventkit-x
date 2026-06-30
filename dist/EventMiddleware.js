@@ -3,7 +3,6 @@ export class EventMiddleware extends EventEmitter {
     constructor() {
         super(...arguments);
         this.middlewares = [];
-        this.stopped = false;
     }
     /**
      * Add middleware to the chain
@@ -15,7 +14,8 @@ export class EventMiddleware extends EventEmitter {
      * Emit event through middleware chain
      */
     async emit(event, data, options) {
-        this.stopped = false;
+        let stopped = false;
+        let index = 0;
         const context = {
             data,
             metadata: {
@@ -25,19 +25,17 @@ export class EventMiddleware extends EventEmitter {
             },
             event,
             next: async () => {
-                if (this.stopped)
+                if (stopped)
                     return;
-                // If no more middleware, emit to listeners
-                if (this.middlewares.length === 0) {
-                    await super.emit(event, data, options);
+                if (index >= this.middlewares.length) {
+                    await super.emit(event, context.data, options);
                     return;
                 }
-                // Execute first middleware
-                const middleware = this.middlewares.shift();
+                const middleware = this.middlewares[index++];
                 await middleware(context);
             },
             stop: () => {
-                this.stopped = true;
+                stopped = true;
             }
         };
         await context.next();

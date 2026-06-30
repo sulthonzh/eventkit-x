@@ -13,7 +13,6 @@ export type MiddlewareHandler<T = any> = (context: MiddlewareContext<T>) => Prom
 
 export class EventMiddleware<T = any> extends EventEmitter {
   private middlewares: MiddlewareHandler<T>[] = [];
-  private stopped = false;
 
   /**
    * Add middleware to the chain
@@ -26,7 +25,8 @@ export class EventMiddleware<T = any> extends EventEmitter {
    * Emit event through middleware chain
    */
   async emit(event: string, data: any, options?: any): Promise<number> {
-    this.stopped = false;
+    let stopped = false;
+    let index = 0;
     
     const context: MiddlewareContext<T> = {
       data,
@@ -37,20 +37,18 @@ export class EventMiddleware<T = any> extends EventEmitter {
       },
       event,
       next: async () => {
-        if (this.stopped) return;
+        if (stopped) return;
         
-        // If no more middleware, emit to listeners
-        if (this.middlewares.length === 0) {
-          await super.emit(event, data, options);
+        if (index >= this.middlewares.length) {
+          await super.emit(event, context.data, options);
           return;
         }
 
-        // Execute first middleware
-        const middleware = this.middlewares.shift()!;
+        const middleware = this.middlewares[index++];
         await middleware(context);
       },
       stop: () => {
-        this.stopped = true;
+        stopped = true;
       }
     };
 
