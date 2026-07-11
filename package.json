@@ -28,6 +28,12 @@
   "author": "Sulthonzh",
   "license": "MIT",
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "typescript": "^6.0.0"
-  }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ]
 }
